@@ -1,9 +1,9 @@
 #!/bin/bash
 
 echo "Sart time=$(date +"%T")"
-IMG_NAME="parafashion"
+IMG_NAME="fs-pattern"
 IMG_TAG="latest"
-CTNR_NAME="parafashion-ctnr"
+CTNR_NAME="fs-pattern-ctnr"
 WORKDIR="/app"
 
 VOLUME=""
@@ -62,7 +62,7 @@ do
         sudo xhost + localhost &&
             docker run -it $RM $GPU $DISPLAY_VOLUME $VOLUME \
                 -e QT_X11_NO_MITSHM=1 \
-                -e XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR \
+                -e XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" \
                 -v /dev:/dev:ro \
                 --net=host \
                 --privileged \

@@ -12,19 +12,18 @@ RUN echo 'root:${ROOT_PWD}' | chpasswd
 WORKDIR /tmp
 
 # Install 
-RUN apt update \
-    && apt install -y --no-install-recommends \
-    python3 python3-opencv
+RUN apt update 
+COPY ./apt_packages.txt .
+RUN xargs apt install --yes --no-install-recommends < apt_packages.txt \
+    && apt clean \
+    && rm -rf /var/lib/apt/lists/*
 
 # Python packages
-RUN pip3 install ezdxf
+COPY ./requirements.txt .
+RUN pip3 install --requirement requirements.txt
 
-# Clean up
-RUN apt clean \
-    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
-
-# Set up env
-# RUN echo "source /opt/ros/noetic/setup.bash" >> ~/.bashrc
+# Clean up remaining things during install
+RUN rm -rf /tmp/* /var/tmp/*
 
 WORKDIR /app
 
