@@ -20,7 +20,7 @@ RUN xargs apt install --yes --no-install-recommends < apt_packages.txt \
 
 # Python packages
 COPY ./requirements.txt .
-RUN pip3 install --requirement requirements.txt
+RUN pip3 install --no-cache-dir --requirement requirements.txt
 
 # Clean up remaining things during install
 RUN rm -rf /tmp/* /var/tmp/*
