@@ -4,6 +4,9 @@ import numpy as np
 from pathlib import Path
 import matplotlib.pyplot as plt
 import matplotlib
+from typing import List
+import sklearn as sk
+import pandas as pd
 
 # %% Setup/Init
 matplotlib.use('Qt5Agg')
@@ -82,9 +85,39 @@ img_bg_mat = medialAxisTransform(img_bg, dist_type=cv.DIST_L1)
 
 imshow("hand MAT", img_mat, OUTPUT_DIR)
 imshow("hand BG MAT", img_bg_mat, OUTPUT_DIR)
-# %% Test
 
+# %% Get finger points
+skeleton = np.argwhere(img_mat > 0)
+clusters = sk.cluster.DBSCAN(eps=15, min_samples=3).fit(skeleton)
+skeleton_lbl = pd.DataFrame(data={
+    "skeleton_x": skeleton[:, 1], 
+    "skeleton_y": skeleton[:, 0], 
+    "label": clusters.labels_
+})
+fingers = skeleton_lbl[(skeleton_lbl["label"] >= 0) & (skeleton_lbl["label"] <= 4)]
 
+plt.scatter(fingers["skeleton_x"], fingers["skeleton_y"], c=fingers["label"], cmap='hsv')
+plt.colorbar()
+plt.show()
 
+# %% Show
+# (x,y) = (x0,y0) + s*(vx,vy)
+class F:
+    def __init__(self, vx: float, vy: float, x0: float, y0: float) -> None:
+        self.x0 = float(x0)
+        self.y0 = float(y0)
+        self.vx = float(vx)
+        self.vy = float(vy)
+
+    def y(self, x: float)->int:
+        return round(self.y0 + (float(x) - self.x0) * self.vy / self.vx)
+
+tmp = img_mat.copy()
+
+finger_0 = fingers[fingers["label"] == 0].to_numpy()[:, 0:2]
+line = cv.fitLine(finger_0, cv.DIST_L2, 0, 0.01, 0.01)
+line_func = F(line[0], line[1], line[2], line[3])
+tmp2 = cv.line(tmp, (img_mat.shape[1], line_func.y(img_mat.shape[1])), (0, line_func.y(0)), (255, 255, 255), 1, cv.LINE_8, 0)
+imshow("tmp2", tmp2, OUTPUT_DIR)
 # %%
 # input()
