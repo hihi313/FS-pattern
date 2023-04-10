@@ -7,10 +7,10 @@ CTNR_NAME="fs-pattern-ctnr"
 WORKDIR="/app"
 
 VOLUME=""
-while getopts "bei:t:v:r:" opt
-do
-  case $opt in
-    b) 
+while getopts "bei:t:v:r:" opt; do
+    case $opt in
+    b)
+        cd ./docker
         if [ "$OPTARG" == "n" ]; then
             CACHE="--no-cache"
         else
@@ -18,12 +18,12 @@ do
         fi
 
         START="$(TZ=UTC0 printf '%(%s)T\n' '-1')" # `-1`  is the current time
-        
+
         docker rmi $IMG_NAME
         docker build $CACHE -t $IMG_NAME .
 
         # Pring elapsed time
-        ELAPSED=$(( $(TZ=UTC0 printf '%(%s)T\n' '-1') - START ))
+        ELAPSED=$(($(TZ=UTC0 printf '%(%s)T\n' '-1') - START))
         TZ=UTC0 printf 'Build duration=%(%H:%M:%S)T\n' "$ELAPSED"
         ;;
     e)
@@ -78,7 +78,7 @@ do
         # Disable tracing
         set +x
         ;;
-    \?) 
+    \?)
         echo "Invalid option -$OPTARG" >&2
         exit 1
         ;;
@@ -89,5 +89,5 @@ do
     *)
         echo "*"
         ;;
-  esac
+    esac
 done
