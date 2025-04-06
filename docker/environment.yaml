@@ -1,0 +1,9 @@
+name: fs_ptrn
+channels:
+  - conda-forge
+dependencies:
+  - python
+  - opencv
+  - matplotlib
+  - pip
+  # - pip:
