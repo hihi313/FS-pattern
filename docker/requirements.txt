@@ -1,7 +1,0 @@
-ezdxf==1.0.1
-jupyter==1.0.0 # For vscode interactive python function
-autopep8==2.0.1
-matplotlib==3.6.3
-scikit-learn==1.2.1
-pandas==1.5.3
-#scikit-image
