@@ -5,14 +5,25 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Py Debug",
+            "name": "Any",
             "type": "debugpy",
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
+            "args": []
+        },
+        {
+            "name": "paw",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/paw_dilate.py",
+            "console": "integratedTerminal",
             "args": [
                 "--input",
-                "images/hand.JPG"
+                "images/IMG_9239.JPG",
+                "--output",
+                "./outputs/",
+                "-r", "3",
             ]
         }
     ]
