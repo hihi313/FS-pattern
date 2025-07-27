@@ -5,5 +5,7 @@ dependencies:
   - python
   - opencv
   - matplotlib
-  - pip
-  # - pip:
+  - loguru
+  - pytest
+  - pip:
+    - opencv-contrib-python
