@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from datetime import datetime
+import numbers
 from pathlib import Path
 import struct
-from typing import Iterable, Optional, Sequence, Tuple, Union
+from typing import Any, Iterable, Optional, Sequence, Tuple, Union
 import zlib
 import cv2 as cv
 from matplotlib import pyplot as plt
@@ -23,12 +24,17 @@ def get_default_name(prefix: str = None, time_fmt: str = "%Y%m%d_%H%M%S") -> str
     return f"{prefix}{datetime.now().strftime(time_fmt)}"
 
 
-def get_output_path(parent: str = "./", filename: str = None, ext: str = "jpg") -> str:
-    parent = Path(parent)
+def get_output_path(
+    parent: str | Path = "./",
+    prefix: str = "output_",
+    filename: str = None,
+    ext: str = "jpg",
+) -> str:
+    parent = Path(parent) if isinstance(parent, str) else parent
     parent.mkdir(parents=True, exist_ok=True)
     if filename is None:
-        filename = get_default_name(prefix="output_")
-    return f"{parent / f'{filename}.{ext}'}"
+        filename = get_default_name(prefix=prefix)
+    return parent / f"{filename}.{ext}"
 
 
 def imshow(
@@ -212,23 +218,23 @@ def order_points(pts: np.ndarray) -> np.ndarray:
         pts[np.argmax(diff)],  # Bottom-left: largest difference
     ], dtype=pts.dtype).reshape(old_shape)
 
-def inche_to_px(inch: float | np.ndarray, dpi: float = 300) -> int:
-    n_px = inch * dpi
-    if isinstance(n_px, np.ndarray):
-        return n_px.round().astype(int)
-    return round(n_px)
+def inche_to_px(inch: Any, dpi: float = 300) -> int | np.ndarray:
+    if isinstance(inch, numbers.Number):
+        return round(inch * dpi)
+    else: # Iterable
+        inch = np.asarray(inch, dtype=float)
+        return (inch * dpi).round().astype(int) 
 
-def mm_to_px(mm: float | np.ndarray, dpi: float = 300) -> int:
+def mm_to_px(mm: Any, dpi: float = 300) -> int | np.ndarray:
     return inche_to_px(mm_to_in(mm), dpi=dpi)   
 
 
-def mm_to_in(mm: float | np.ndarray | Iterable) -> float | np.ndarray | Iterable:
-    if isinstance(mm, Iterable) and not isinstance(mm, np.ndarray):
-        return [mm_to_in(m) for m in mm]
-    else:
-        return mm / 25.4
-    
+def mm_to_in(mm: Any) -> float | np.ndarray:
+    if not isinstance(mm, numbers.Number):
+        mm = np.asarray(mm, dtype=float)
+    return mm / 25.4
 
+# TODO: cleanup unused functions
 def imwrite_png(im: np.ndarray, filename: str, dpi: tuple = (300, 300)):
     """
     Saves an image as PNG with embedded DPI by finding the IDAT chunk.
@@ -296,23 +302,23 @@ def rgb_to_gray_cv(rgb: Sequence[int]) -> int:
 
 def pad_to_size(
     img: np.ndarray,
-    M: int,
-    N: int,
+    H: int,
+    W: int,
     bg_color: Optional[Union[Tuple[int, int, int], int]] = None
 ) -> np.ndarray:
     """
     Place image at the center of a larger image with specified dimensions (M, N).
     """
     if len(img.shape) == 3:
-        H, W, C = img.shape
+        h, w, C = img.shape
     else:  # Grayscale image
-        H, W = img.shape
+        h, w = img.shape
         C = 1
 
     # Check if the smaller image fits within the new dimensions
-    if H > M or W > N:
-        raise ValueError(f"The larger image ({M}, {N}) must >= the smaller image ({H}, {W}).")
-    elif H == M and W == N:
+    if h > H or w > W:
+        raise ValueError(f"The larger image ({H}, {W}) must >= the smaller image ({h}, {w}).")
+    elif h == H and w == W:
         return img.copy()
 
     # Determine the background color based on the number of channels
@@ -320,15 +326,15 @@ def pad_to_size(
 
     # Create the new, blank M x N image with the background color
     if C == 1:
-        large_img = np.full((M, N), bg_color, dtype=np.uint8)
+        large_img = np.full((H, W), bg_color, dtype=np.uint8)
     else: # Color image
-        large_img = np.full((M, N, C), bg_color, dtype=np.uint8)
+        large_img = np.full((H, W, C), bg_color, dtype=np.uint8)
 
     # Calculate the coordinates to place the small image at the center
-    y_start = (M - H) // 2
-    x_start = (N - W) // 2
-    y_end = y_start + H
-    x_end = x_start + W
+    y_start = (H - h) // 2
+    x_start = (W - w) // 2
+    y_end = y_start + h
+    x_end = x_start + w
 
     # Place the small image onto the larger image using slicing
     large_img[y_start:y_end, x_start:x_end] = img

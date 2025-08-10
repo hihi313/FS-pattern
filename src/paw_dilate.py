@@ -1,11 +1,16 @@
 from __future__ import annotations
 
 import argparse
+import io
+import sys
 from pathlib import Path
 
 import cv2 as cv
+import img2pdf
 import numpy as np
 from loguru import logger
+from PIL import Image
+
 
 import util
 
@@ -65,18 +70,54 @@ def parse_args():
         help="Paper size in inches (width height), default is A4 (8.3 x 11.7 inches)",
     )
     parser.add_argument(
+        "--size-unit",
+        type=str,
+        choices=["in", "cm"],
+        default="in",
+        help="Unit for paper size, either 'in' or 'cm'. Default is 'in'.",
+    )
+    parser.add_argument(
         "-r",
         "--radius",
         type=float,
         default=5,
         help="Dilation size in mm. Expand the hand region by this amount in mm",
     )
-    # TODO set log level
+    parser.add_argument(
+        "--output-size",
+        nargs=2,
+        type=float,
+        default=(11.7, 16.5),  # Default to A3 size in inches
+        help="Paper size in inches (width height), default is A4 (8.3 x 11.7 inches)",
+    )
+    parser.add_argument(
+        "--log-level",
+        type=str,
+        choices=["TRACE", "DEBUG", "INFO", "SUCCESS", "WARNING", "ERROR", "CRITICAL"],
+        default="DEBUG",
+        help="Set the logging level (default: DEBUG)",
+    )
+    parser.add_argument(
+        "--ext",
+        type=str,
+        default="pdf",
+        help="Output file extension. Can be png. (default: pdf) "
+    )
     return parser.parse_args()
 
 
 def main():
     args = parse_args()
+
+    # Set log level
+    logger.remove()
+    logger.add(sys.stderr, level=args.log_level) 
+
+    # All convert to inches, since DPI is in inches
+    if args.size_unit == "cm":
+        args.paper_size = util.mm_to_in(np.array(args.paper_size) * 10)
+        args.output_size = util.mm_to_in(np.array(args.output_size) * 10)
+
 
     for image_path in args.input:
         if not image_path.exists() or not image_path.is_file():
@@ -138,7 +179,7 @@ def main():
         cv.imshow(f"Paper's poly", img_cntr_poly)
 
         # straighten paper size
-        dst_size = util.inche_to_px(np.array(args.paper_size), args.dpi)  # (W,H)
+        dst_size = util.inche_to_px(args.paper_size, args.dpi)  # (W,H)
         # straighten paper corners
         dst_corner = np.array(
             [
@@ -156,13 +197,13 @@ def main():
             solveMethod=cv.DECOMP_SVD
         )
 
-        # Close the hand region
+        # Close the hand region to ensure it form a connected component
         paper_poly4 = paper_poly4.squeeze()
         # TODO: change thickness to ?% width
         bw = cv.line(bw, paper_poly4[-1], paper_poly4[-2], (0, 0, 0), 2)
         cv.imshow("BW hand region", bw)
 
-        # Find hand connectec component
+        # Find hand connected component
         numLabels, labels, stats, centroids = cv.connectedComponentsWithStatsWithAlgorithm(bw, 8,cv.CV_32S,cv.CCL_BOLELLI)
 
         # Sort components from large area
@@ -192,19 +233,53 @@ def main():
         )
         cv.imshow("Unwrap hand", hand_unwrap)
 
+        # TODO: close & find connected componet after wrap
+        # TODO: handle gray scale problem, the image is actually gray scale, not B/W after some operations
+        # TODO: wrap paper extract & unwrap to class
+        
+        # Move to output/larger paper
+        Wo, Ho = util.inche_to_px(args.output_size, args.dpi)  # (W,H)
+        hand_pad = util.pad_to_size(hand_unwrap, Ho, Wo, 0)
+        cv.imshow("Hand pad", hand_pad)
+
         # Dilate r mm
         # Convert r from mm to px
         r = util.mm_to_px(args.radius, dpi=args.dpi)
         kernel = cv.getStructuringElement(
             cv.MORPH_ELLIPSE,
             (2*r + 1, 2*r + 1)
-        )  # creates an 11×11 ellipse mask :contentReference[oaicite:2]{index=2}
+        )  # creates an 11×11 ellipse mask
 
         # Dilation
-        hand_dilate = cv.dilate(hand_unwrap, kernel, iterations=1, borderType=cv.BORDER_REPLICATE)
+        hand_dilate = cv.dilate(hand_pad, kernel, iterations=1, borderType=cv.BORDER_REPLICATE)
         cv.imshow("Hand dilated", hand_dilate)
         cv.imwrite("Hand dilated.png", hand_dilate)
-        # TODO: move from a4 to B4 (output to print at larger paper)
+
+        # Convert to black contour only (on white background). The output pdf file dimension verified OK
+        # TODO: + args to set the contour thickness
+        hand_cntrs, _ = cv.findContours(hand_dilate, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE)
+        hand_cntr_img = np.ones_like(hand_dilate) * 255
+        cv.drawContours(
+            hand_cntr_img, hand_cntrs, -1, (0, 0, 0), thickness=1
+        )
+        cv.imshow("Hand dilate contour", hand_cntr_img)
+
+        # Save as file with DPI
+        out_path = util.get_output_path(args.output, prefix=f"{image_path.stem}_", ext=args.ext)
+        img_pil = Image.fromarray(hand_cntr_img)
+        if args.ext.lower() in "pdf":
+            # Save the image to an in-memory buffer
+            byte_buffer = io.BytesIO()
+            img_pil.save(byte_buffer, format='PNG')
+            # Get the bytes from the buffer
+            image_bytes = byte_buffer.getvalue()
+            # Save bytes img to pdf
+            layout_fun = img2pdf.get_fixed_dpi_layout_fun((args.dpi, args.dpi))
+            with open(out_path, "wb") as f:
+                f.write(img2pdf.convert(image_bytes, layout_fun=layout_fun))
+        else:
+            img_pil.save(out_path, dpi=(args.dpi, args.dpi))
+
         cv.waitKey(0)
         cv.destroyAllWindows()
 

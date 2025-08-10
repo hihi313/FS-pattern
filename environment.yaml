@@ -9,3 +9,4 @@ dependencies:
   - pytest
   - pip:
     - opencv-contrib-python
+    - img2pdf
