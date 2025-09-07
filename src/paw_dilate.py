@@ -236,7 +236,7 @@ def main():
         # TODO: close & find connected componet after wrap
         # TODO: handle gray scale problem, the image is actually gray scale, not B/W after some operations
         # TODO: wrap paper extract & unwrap to class
-        
+
         # Move to output/larger paper
         Wo, Ho = util.inche_to_px(args.output_size, args.dpi)  # (W,H)
         hand_pad = util.pad_to_size(hand_unwrap, Ho, Wo, 0)
@@ -250,6 +250,9 @@ def main():
             (2*r + 1, 2*r + 1)
         )  # creates an 11×11 ellipse mask
 
+        hand_cntrs, _ = cv.findContours(hand_pad, cv.RETR_EXTERNAL,  cv.CHAIN_APPROX_SIMPLE)
+        hand_cntr = hand_cntrs[0]
+
         # Dilation
         hand_dilate = cv.dilate(hand_pad, kernel, iterations=1, borderType=cv.BORDER_REPLICATE)
         cv.imshow("Hand dilated", hand_dilate)
@@ -257,10 +260,23 @@ def main():
 
         # Convert to black contour only (on white background). The output pdf file dimension verified OK
         # TODO: + args to set the contour thickness
-        hand_cntrs, _ = cv.findContours(hand_dilate, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE)
+        hand_dilate_cntrs, _ = cv.findContours(hand_dilate, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
         hand_cntr_img = np.ones_like(hand_dilate) * 255
         cv.drawContours(
-            hand_cntr_img, hand_cntrs, -1, (0, 0, 0), thickness=1
+            hand_cntr_img, hand_dilate_cntrs, -1, (0, 0, 0), thickness=1
+        )
+
+        # Draw reference line w/ specified length
+        hand_dilate_cntr = hand_dilate_cntrs[0]
+        x,y,w,h = cv.boundingRect(hand_dilate_cntr)
+        ref_len = util.mm_to_px(100, args.dpi) # 10 cm
+        margin = util.mm_to_px(5, args.dpi)
+        # Vertical line at top left
+        cv.line(hand_cntr_img, (x-margin, y ), (x-margin, y+ref_len), (0, 0, 0), thickness=3)
+        # Horizontal line at top
+        cv.line(hand_cntr_img, (x, y-margin), (x+ref_len, y-margin), (0, 0, 0), thickness=3)
+        cv.drawContours(
+            hand_cntr_img, [hand_cntr], -1, (0, 0, 0), thickness=1
         )
         cv.imshow("Hand dilate contour", hand_cntr_img)
 

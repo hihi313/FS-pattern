@@ -23,7 +23,9 @@
                 "images/IMG_9239.JPG",
                 "--output",
                 "./outputs/",
-                "-r", "3",
+                "--output-size", "11.38", "15.94",
+                "-r", "5",
+                "--ext", "pdf"
             ]
         }
     ]
